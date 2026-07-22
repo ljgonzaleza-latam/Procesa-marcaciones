@@ -51,8 +51,24 @@ CLASS lcl_log IMPLEMENTATION.
         log_header_inconsistent = 1
         OTHERS                  = 2.
     IF sy-subrc <> 0.
-      MESSAGE 'Error al crear el log de aplicación'(m02) TYPE 'E'.
-      LEAVE PROGRAM.
+      " Objeto/subobjeto no dados de alta en SLG0: se reintenta sin
+      " ellos para no abortar (el log queda visible en SLG1 filtrando
+      " por programa). TODO [SDD 8]: crear ZHR/ZDEPURA_MARCAS en SLG0.
+      CLEAR: lwa_log-object, lwa_log-subobject.
+      CALL FUNCTION 'BAL_LOG_CREATE'
+        EXPORTING
+          i_s_log                 = lwa_log
+        IMPORTING
+          e_log_handle            = l_handle
+        EXCEPTIONS
+          log_header_inconsistent = 1
+          OTHERS                  = 2.
+      IF sy-subrc <> 0.
+        MESSAGE 'Error al crear el log de aplicación'(m02) TYPE 'E'.
+        LEAVE PROGRAM.
+      ENDIF.
+      MESSAGE 'Objeto de log no existe en SLG0; log sin clasificar'(m06)
+        TYPE 'S' DISPLAY LIKE 'W'.
     ENDIF.
   ENDMETHOD.
 

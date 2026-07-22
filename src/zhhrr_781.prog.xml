@@ -132,6 +132,12 @@
      <LENGTH>60</LENGTH>
     </item>
     <item>
+     <ID>I</ID>
+     <KEY>M06</KEY>
+     <ENTRY>Objeto de log no existe en SLG0; log sin clasificar</ENTRY>
+     <LENGTH>60</LENGTH>
+    </item>
+    <item>
      <ID>S</ID>
      <KEY>P_ERROR</KEY>
      <ENTRY>Número de la clase de notificación</ENTRY>
