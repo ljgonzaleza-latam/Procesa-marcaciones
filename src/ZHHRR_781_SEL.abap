@@ -4,6 +4,17 @@
 *& Nota: la selección de empleados y período la provee la     *
 *& base de datos lógica PNP (pantalla estándar HR).           *
 *&============================================================*
+*& Símbolos de texto a definir en SE38 (Pasar a -> Símbolos   *
+*& de texto) en ESPAÑOL, con traducción a inglés y portugués  *
+*& según estándar LATAM (secc. 8 y 13):                       *
+*&   TEXT-001 = Parámetros de proceso                         *
+*&   TEXT-002 = Identificación de marca duplicada (FEHLER)    *
+*& Textos de selección (Pasar a -> Textos de selección):      *
+*&   P_TEST  = Modo simulación (no actualiza TEVEN)           *
+*&   P_VENTA = Ventana de proximidad (horas)                  *
+*&   P_ERRTY = Tipo de clase de notificación                  *
+*&   P_ERROR = Número de la clase de notificación             *
+*&============================================================*
 
 SELECTION-SCREEN BEGIN OF BLOCK b01 WITH FRAME TITLE TEXT-001. " Parámetros de proceso
 
