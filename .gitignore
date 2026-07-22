@@ -1,0 +1,7 @@
+# Archivos temporales de Office/editores
+~$*
+*.tmp
+*.bak
+
+# Salidas locales
+*.log

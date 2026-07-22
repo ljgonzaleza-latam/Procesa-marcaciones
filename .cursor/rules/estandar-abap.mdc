@@ -1,0 +1,51 @@
+---
+description: Estándar de desarrollo ABAP de LATAM Airlines, obligatorio para todo código ABAP generado o modificado
+alwaysApply: true
+---
+
+# Estándar de Desarrollo ABAP — LATAM Airlines (SAP S/4HANA)
+
+Todo desarrollo o mantención de código ABAP debe cumplir estrictamente el estándar completo
+documentado en `docs/ESTANDAR_DESARROLLO_ABAP.md`. **Antes de escribir o modificar código ABAP,
+leer ese documento.** Resumen de las reglas más críticas:
+
+## Nomenclatura de objetos
+- Programas/reportes: `Z<FrenteFuncional><Módulo><TipoPrograma>_<Correlativo>` (ej. `ZHHRR_001` = reporte de HR, frente RRHH). Frentes: P/F/G/H/C; módulos: HR, FI, MM, SD, etc. (Anexos 1 y 2 del estándar).
+- Includes con sufijo: `_TOP` (datos), `_SEL` (selection-screen), `_CLA` (clases), `_F00`–`_F99` (subrutinas).
+- Transacciones: `Z<Frente><Módulo>T_<Correlativo>`. Grupos de funciones: `ZF<Módulo>_<Correlativo>`.
+- Tablas: `Z<Módulo>_<Nemónico>`; estructuras `ZS_*`; data elements `ZDE_*`; dominios `ZDO_*`; CDS `Z<Módulo>_CDS_<NNNN>`.
+- Variables: `g_`/`l_` (simples), `gt_`/`lt_` (tablas internas), `gwa_`/`lwa_` (work areas), `gc_`/`lc_` (constantes), `gr_`/`lr_` (rangos), `go_`/`lo_` (objetos), `gty_`/`lty_` (tipos), field symbols `<gfs_*>`/`<lfs_*>`. Parámetros: `pu_`/`pc_`/`pt_` (FORM), `pi_`/`pe_`/`pc_`/`pt_`/`pr_` (funciones y métodos).
+- Parameters de pantalla: `P_*`; select-options: `S_*`.
+
+## Prohibiciones absolutas
+- NUNCA modificar objetos estándar de SAP ni hacer `UPDATE`/`INSERT`/`DELETE` directo a tablas estándar (usar BAPIs, o en última instancia `CALL TRANSACTION`/BDC).
+- NUNCA usar `SELECT *`: especificar siempre los campos.
+- NUNCA dejar breakpoints en el código.
+- NUNCA usar textos hardcodeados: usar elementos de texto/constantes con traducción a español, inglés y portugués.
+
+## Obligaciones de todo programa
+- Cabecera de documentación estándar (descripción, fecha, creador, empresa, histórico de modificaciones con marcas `@NNN`). Idioma oficial: español.
+- `AUTHORITY-CHECK` al inicio (objeto `S_TCODE` + objeto funcional), validando `SY-SUBRC` inmediatamente después; si falla, salir (`LEAVE PROGRAM`). Nunca `ACTVT = '*'`.
+- Manejo de errores: validar `SY-SUBRC` tras toda sentencia que lo modifique; usar `TRY/CATCH` para evitar dumps (incl. operaciones matemáticas y archivos con `CX_SY_FILE_*`).
+- Actualizaciones a tablas Z: siempre con bloqueo `ENQUEUE`/`DEQUEUE` y control de la unidad de trabajo (`COMMIT WORK`).
+- Código repetido: extraer a métodos de clases (locales o globales vía SE24).
+- ALV con OO (`CL_GUI_CUSTOM_CONTAINER`; en fondo usar `CL_GUI_DOCKING_CONTAINER` controlando con `cl_gui_alv_grid=>offline( )`).
+- Correos con `CL_BCS`; carga/descarga de archivos con `CL_GUI_FRONTEND_SERVICES`.
+- Programas de fondo: usar `BP_START_DATE_EDITOR` y control de ejecuciones paralelas duplicadas.
+
+## Optimización HANA
+- Selects con campos explícitos, filtrar por clave/índice, evitar `SELECT-ENDSELECT`, `SELECT` anidados y `MOVE-CORRESPONDING`.
+- Evaluar CDS cuando haya ≥3 tablas unidas, alto volumen o ≥15 campos; AMDP para procesos repetitivos.
+- Usar el tipo de tabla interna correcto (`HASHED`/`SORTED`/`STANDARD`) con clave explícita o `EMPTY KEY` (nunca `DEFAULT KEY`).
+
+## Clean Code (sección 29.1 del estándar)
+- Nombres descriptivos y pronunciables; sustantivos para clases, verbos para métodos (`is_`/`has_` para booleanos).
+- Constantes en lugar de números mágicos, agrupadas (`BEGIN OF ... END OF`) o en clases de enumeración.
+- Declaraciones en línea `DATA(...)` (no en ramas opcionales, no encadenadas); `LINE_EXISTS`, `LOOP AT ... WHERE`, `REFERENCE INTO`.
+- Booleanos con `abap_bool` / `abap_true` / `abap_false` / `xsdbool( )`.
+- Strings: `` ` `` para literales y `| |` para plantillas de texto.
+
+## Proceso
+- Pasar Pretty Printer (sangrado, palabras clave en mayúsculas) y Code Inspector (SCI) a todo objeto.
+- Todos los textos con traducciones a inglés y portugués antes de transportar.
+- Programas temporales que no van a productivo: prefijo `Y` + iniciales.
