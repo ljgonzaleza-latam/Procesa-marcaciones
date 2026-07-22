@@ -4,12 +4,12 @@
 *& Nota: la selección de empleados y período la provee la     *
 *& base de datos lógica PNP (pantalla estándar HR).           *
 *&============================================================*
-*& Símbolos de texto a definir en SE38 (Pasar a -> Símbolos   *
-*& de texto) en ESPAÑOL, con traducción a inglés y portugués  *
-*& según estándar LATAM (secc. 8 y 13):                       *
+*& Símbolos de texto y textos de selección: se cargan vía     *
+*& abapGit desde zhhrr_781.prog.xml (en ESPAÑOL). Requieren   *
+*& traducción a inglés y portugués según estándar LATAM       *
+*& (secc. 8 y 13) antes del transporte a productivo:          *
 *&   TEXT-001 = Parámetros de proceso                         *
 *&   TEXT-002 = Identificación de marca duplicada (FEHLER)    *
-*& Textos de selección (Pasar a -> Textos de selección):      *
 *&   P_TEST  = Modo simulación (no actualiza TEVEN)           *
 *&   P_VENTA = Ventana de proximidad (horas)                  *
 *&   P_ERRTY = Tipo de clase de notificación                  *
