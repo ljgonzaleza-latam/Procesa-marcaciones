@@ -195,34 +195,24 @@ CLASS lcl_depurador IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD leer_dias_con_duplicados.
-    DATA: l_fecha TYPE datum.
+    DATA: l_fecha TYPE datum,
+          l_pabrj TYPE pabrj,
+          l_pabrp TYPE pabrp.
 
-    " Recorre los períodos mensuales del rango e importa el cluster B2
+    " Recorre los períodos mensuales del rango e importa el cluster B2.
+    " La importación se delega a una FORM (include ZHHRR_781_F00)
+    " porque las macros RP-IMP-* no están soportadas en contexto OO.
     l_fecha = pu_begda.
     WHILE l_fecha <= pu_endda.
+      l_pabrj = l_fecha(4).
+      l_pabrp = l_fecha+4(2).
 
-      " Clave del cluster B2 (resultados de evaluación de tiempos)
-      CLEAR b2-key.
-      b2-key-pernr = pu_pernr.
-      b2-key-pabrj = l_fecha(4).
-      b2-key-pabrp = l_fecha+4(2).
-      b2-key-cltyp = gc_cltyp_b2.
-
-      " Importación del cluster B2 (macro estándar; llena tabla FEHLER)
-      rp-imp-c2-b2.
-
-      IF rp-imp-c2-subrc = 0.
-        " Filtro por el mensaje de marca duplicada (ERRTY/ERROR)
-        LOOP AT fehler REFERENCE INTO DATA(lr_fehler)
-             WHERE errty = p_errty
-               AND error = p_error
-               AND ldate BETWEEN pu_begda AND pu_endda.
-          " Un día se procesa una sola vez aunque tenga varios mensajes
-          IF NOT line_exists( pr_dias[ table_line = lr_fehler->ldate ] ).
-            INSERT lr_fehler->ldate INTO TABLE pr_dias.
-          ENDIF.
-        ENDLOOP.
-      ENDIF.
+      PERFORM f_leer_fehler_b2 USING pu_pernr
+                                     l_pabrj
+                                     l_pabrp
+                                     pu_begda
+                                     pu_endda
+                            CHANGING pr_dias.
 
       " Avanza al primer día del mes siguiente
       l_fecha+6(2) = '01'.
@@ -358,14 +348,16 @@ CLASS lcl_depurador IMPLEMENTATION.
       ENDIF.
 
       " Suplencia por plan de horario diario (TPROG) -> T550A
+      " (SOBEG/SOEND: inicio/fin del horario de trabajo teórico)
       IF lr_supl->tprog IS NOT INITIAL.
-        SELECT beguz, enduz
+        SELECT sobeg, soend
           FROM t550a
           INTO ( @pr_horario-beguz, @pr_horario-enduz )
           UP TO 1 ROWS
           WHERE tprog = @lr_supl->tprog
             AND endda >= @pu_datum
-            AND begda <= @pu_datum.
+            AND begda <= @pu_datum
+          ORDER BY motpr, varia, seqno.
         ENDSELECT.
         IF sy-subrc = 0.
           pr_horario-fuente = gc_fuente_supl.
@@ -384,7 +376,7 @@ CLASS lcl_depurador IMPLEMENTATION.
     DATA: l_schkz  TYPE schkn,
           l_zeity  TYPE dzeity,
           l_mosid  TYPE mosid,
-          l_motpr  TYPE motpr,
+          l_mofid  TYPE hident,
           l_tprog  TYPE tprog,
           l_campo  TYPE fieldname.
 
@@ -404,10 +396,11 @@ CLASS lcl_depurador IMPLEMENTATION.
     LOOP AT p0001 REFERENCE INTO DATA(lr_p0001)
          WHERE begda <= pu_datum AND endda >= pu_datum.
 
-      " Agrupador de subdivisión de personal para horarios
-      SELECT SINGLE mosid, motpr
+      " Agrupador de subdivisión de personal para planes de horario
+      " y calendario de festivos (ambos parte de la clave de T552A)
+      SELECT SINGLE mosid, mofid
         FROM t001p
-        INTO ( @l_mosid, @l_motpr )
+        INTO ( @l_mosid, @l_mofid )
         WHERE werks = @lr_p0001->werks
           AND btrtl = @lr_p0001->btrtl.
 
@@ -425,6 +418,7 @@ CLASS lcl_depurador IMPLEMENTATION.
       INTO @DATA(lwa_t552a)
       UP TO 1 ROWS
       WHERE zeity = @l_zeity
+        AND mofid = @l_mofid
         AND mosid = @l_mosid
         AND schkz = @l_schkz
         AND kjahr = @pu_datum(4)
@@ -443,14 +437,17 @@ CLASS lcl_depurador IMPLEMENTATION.
     l_tprog = <lfs_tprog>.
 
     " Horas de entrada/salida del plan de horario diario (T550A)
-    SELECT beguz, enduz
+    " SOBEG/SOEND: inicio/fin del horario de trabajo teórico.
+    " TODO [SDD 8]: incluir el agrupador MOTPR según el customizing
+    " del sistema (asignación MOSID -> MOTPR) si existe más de uno.
+    SELECT sobeg, soend
       FROM t550a
       INTO ( @pr_horario-beguz, @pr_horario-enduz )
       UP TO 1 ROWS
-      WHERE motpr = @l_motpr
-        AND tprog = @l_tprog
+      WHERE tprog = @l_tprog
         AND endda >= @pu_datum
-        AND begda <= @pu_datum.
+        AND begda <= @pu_datum
+      ORDER BY motpr, varia, seqno.
     ENDSELECT.
     IF sy-subrc = 0.
       pr_horario-fuente = gc_fuente_teor.

@@ -7,8 +7,11 @@
 *--------------------------------------------------------------------*
 * Tablas / BD lógica PNP
 *--------------------------------------------------------------------*
-TABLES: pernr,   " Estructura de la BD lógica PNP
-        pcl1,    " Cluster de datos HR
+" Nodo de la BD lógica PNP (requiere asignar la LDB "PNP" en los
+" atributos del programa - SE38 -> Atributos -> Base de datos lógica)
+NODES: pernr.
+
+TABLES: pcl1,    " Cluster de datos HR
         pcl2.    " Cluster de resultados (B2: tiempos)
 
 " Infotipos provistos por la LDB PNP

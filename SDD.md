@@ -198,7 +198,7 @@ Programa de proceso (batch/bajo demanda) con cuatro bloques:
 
 ### 3.4 Entorno técnico de implementación
 - **Lenguaje/plataforma:** ABAP sobre **SAP S/4HANA 2023**, cumpliendo el **Estándar de Desarrollo SAP S/4 de LATAM** (`docs/ESTANDAR_DESARROLLO_ABAP.md`).
-- **Nombre del programa según estándar:** `ZHHRR_781` (Z + frente H "Recursos Humanos" + módulo HR + tipo R "Reporte" + correlativo 781). Includes: `ZHHRR_781_TOP`, `ZHHRR_781_SEL`, `ZHHRR_781_CLA`. Fuentes en `src/`.
+- **Nombre del programa según estándar:** `ZHHRR_781` (Z + frente H "Recursos Humanos" + módulo HR + tipo R "Reporte" + correlativo 781). Includes: `ZHHRR_781_TOP`, `ZHHRR_781_SEL`, `ZHHRR_781_CLA`, `ZHHRR_781_F00` (subrutinas: importación del cluster B2, ya que las macros `RP-IMP-*` no se admiten en contexto OO). Fuentes en `src/`.
 - **Tipo de objeto:** programa ejecutable (report) HR con **base de datos lógica PNP** en la pantalla
   inicial (selección estándar por número de personal, período y criterios organizativos, con chequeo
   de autorizaciones HR incluido), ejecutable en batch (job) y en diálogo, con modo de prueba/simulación.

@@ -24,6 +24,7 @@ REPORT zhhrr_781.
 INCLUDE zhhrr_781_top.   " Declaraciones globales / cluster B2
 INCLUDE zhhrr_781_sel.   " Pantalla de selección
 INCLUDE zhhrr_781_cla.   " Clases locales (lógica del proceso)
+INCLUDE zhhrr_781_f00.   " Subrutinas (importación cluster B2)
 
 *--------------------------------------------------------------------*
 * INITIALIZATION
