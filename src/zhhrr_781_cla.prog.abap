@@ -106,13 +106,19 @@ CLASS lcl_log IMPLEMENTATION.
     CALL FUNCTION 'BAL_DB_SAVE'
       EXPORTING
         i_t_log_handle   = lt_handles
+        i_save_all       = abap_true
       EXCEPTIONS
         log_not_found    = 1
         save_not_allowed = 2
         numbering_error  = 3
         OTHERS           = 4.
     IF sy-subrc <> 0.
-      MESSAGE 'Error al grabar el log de aplicación'(m04) TYPE 'I'.
+      " Detalle de la excepción para facilitar el diagnóstico:
+      " 1 = log no encontrado / 2 = grabación no permitida (típico:
+      " objeto/subobjeto no dados de alta en SLG0) / 3 = error de
+      " rango de números del log de aplicación
+      MESSAGE |{ 'Error al grabar el log de aplicación'(m04) } | &&
+              |(BAL_DB_SAVE subrc { sy-subrc })| TYPE 'I'.
     ENDIF.
   ENDMETHOD.
 
