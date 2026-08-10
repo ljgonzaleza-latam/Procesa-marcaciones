@@ -77,6 +77,8 @@ CONSTANTS:
   gc_idt_portal    TYPE terid      VALUE 'PORT',  " Origen Portal
   " Nota: se considera "reloj control" toda marca con TERID <> PORT
   gc_cltyp_b2      TYPE pcl2-srtfd VALUE '1',     " Tipo cluster eval.tiempos
+  gc_infty_2011    TYPE infty      VALUE '2011',  " Infotipo eventos de tiempos
+  gc_marca_elim    TYPE hr_usrfld  VALUE 'ELIM_LOGICA', " Indicador borrado lógico (USER2)
   gc_fuente_supl   TYPE char6      VALUE 'IT2003',
   gc_fuente_teor   TYPE char6      VALUE 'IT0007',
   gc_tcode         TYPE sy-tcode   VALUE 'ZHHRT_781', " TODO [SDD 8] confirmar Tx

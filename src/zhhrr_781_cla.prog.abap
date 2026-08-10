@@ -464,54 +464,49 @@ CLASS lcl_depurador IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD corregir_tipo_marca.
-    DATA: lwa_p2011 TYPE p2011,
-          lwa_key   TYPE bapipakey,
-          lwa_ret   TYPE bapireturn1.
+    DATA: l_subrc TYPE sysubrc.
 
     " En simulación solo se registra la acción propuesta
     IF l_test = abap_false.
-      " Actualización vía infotipo 2011 (no update directo a TEVEN,
-      " estándar LATAM 11.3). TODO [SDD 8]: confirmar mecanismo.
-      " Se parte del registro real de TEVEN para conservar sus
-      " campos y solo modificar la clase de hecho (SATZA)
-      SELECT SINGLE pernr, ldate, ltime, erdat, ertim, satza,
-                    terid, abwgr, origf, zeinh, hrazl, dallf, pdsnr
-        FROM teven
-        WHERE pdsnr = @pi_marca-pdsnr
-        INTO @DATA(lwa_teven).                   "#EC CI_SEL_NESTED
+      " El IT2011 escribe directamente sobre TEVEN y no existe
+      " BAPI/operación de infotipo para MODIFICAR un evento ya
+      " registrado. La corrección se realiza sobre TEVEN con bloqueo
+      " previo del empleado y unidad de trabajo controlada
+      " (desviación autorizada del estándar 21.1 - sin BAPI disponible)
+      CALL FUNCTION 'ENQUEUE_EPPRELE'
+        EXPORTING
+          pernr          = pi_marca-pernr
+          infty          = gc_infty_2011
+        EXCEPTIONS
+          foreign_lock   = 1
+          system_failure = 2
+          OTHERS         = 3.
       IF sy-subrc <> 0.
         registrar( pi_marca   = pi_marca
                    pi_accion  = 'ERROR'(a04)
-                   pi_detalle = 'Fallo al corregir tipo de marca'(d05)
+                   pi_detalle = 'Empleado bloqueado por otro proceso'(d09)
                    pi_tipo    = 'E' ).
         RETURN.
       ENDIF.
 
-      MOVE-CORRESPONDING lwa_teven TO lwa_p2011.
-      lwa_p2011-pernr = pi_marca-pernr.
-      lwa_p2011-infty = '2011'.
-      lwa_p2011-begda = pi_marca-ldate.
-      lwa_p2011-endda = pi_marca-ldate.
-      lwa_p2011-satza = pi_nuevo.
+      UPDATE teven SET satza = @pi_nuevo
+             WHERE pdsnr = @pi_marca-pdsnr.
+      l_subrc = sy-subrc.
+      IF l_subrc = 0.
+        COMMIT WORK.
+      ELSE.
+        ROLLBACK WORK.
+      ENDIF.
 
-      CALL FUNCTION 'HR_INFOTYPE_OPERATION'
+      CALL FUNCTION 'DEQUEUE_EPPRELE'
         EXPORTING
-          infty         = '2011'
-          number        = pi_marca-pernr
-          record        = lwa_p2011
-          validitybegin = pi_marca-ldate
-          validityend   = pi_marca-ldate
-          operation     = 'MOD'
-          tclas         = 'A'          " Datos maestros de empleados
-        IMPORTING
-          return        = lwa_ret
-          key           = lwa_key.
-      IF lwa_ret-type = 'E' OR lwa_ret-type = 'A'.
-        " Se registra el mensaje devuelto por la función para diagnóstico
+          pernr = pi_marca-pernr
+          infty = gc_infty_2011.
+
+      IF l_subrc <> 0.
         registrar( pi_marca   = pi_marca
                    pi_accion  = 'ERROR'(a04)
-                   pi_detalle = CONV #( |{ 'Fallo al corregir tipo de marca'(d05) }: | &
-                                        |{ lwa_ret-message }| )
+                   pi_detalle = 'Fallo al corregir tipo de marca'(d05)
                    pi_tipo    = 'E' ).
         RETURN.
       ENDIF.
@@ -523,53 +518,51 @@ CLASS lcl_depurador IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD eliminar_marca_portal.
-    " Eliminación LÓGICA de la marca de Portal (IDTFinal = PORT).
-    " TODO [SDD 8]: confirmar el indicador definitivo de borrado
-    " lógico en TEVEN (p.ej. campo de cliente PDC_USRUP / USER2)
-    " y el mecanismo de actualización. La marca original se conserva.
-    DATA: lwa_p2011 TYPE p2011,
-          lwa_ret   TYPE bapireturn1.
+    " Eliminación LÓGICA de la marca de Portal (IDTFinal = PORT):
+    " se marca el campo de cliente USER2 de TEVEN con ELIM_LOGICA.
+    " La marca original se conserva (nunca borrado físico).
+    DATA: l_subrc TYPE sysubrc.
 
     IF l_test = abap_false.
-      " Se parte del registro real de TEVEN para conservar sus
-      " campos y solo marcar el indicador de borrado lógico
-      SELECT SINGLE pernr, ldate, ltime, erdat, ertim, satza,
-                    terid, abwgr, origf, zeinh, hrazl, dallf, pdsnr
-        FROM teven
-        WHERE pdsnr = @pi_marca-pdsnr
-        INTO @DATA(lwa_teven).                   "#EC CI_SEL_NESTED
+      " El IT2011 escribe directamente sobre TEVEN y no existe
+      " BAPI/operación de infotipo para MODIFICAR un evento ya
+      " registrado. La actualización se realiza sobre TEVEN con
+      " bloqueo previo del empleado y unidad de trabajo controlada
+      " (desviación autorizada del estándar 21.1 - sin BAPI disponible)
+      CALL FUNCTION 'ENQUEUE_EPPRELE'
+        EXPORTING
+          pernr          = pi_marca-pernr
+          infty          = gc_infty_2011
+        EXCEPTIONS
+          foreign_lock   = 1
+          system_failure = 2
+          OTHERS         = 3.
       IF sy-subrc <> 0.
         registrar( pi_marca   = pi_marca
                    pi_accion  = 'ERROR'(a04)
-                   pi_detalle = 'Fallo en eliminación lógica'(d07)
+                   pi_detalle = 'Empleado bloqueado por otro proceso'(d09)
                    pi_tipo    = 'E' ).
         RETURN.
       ENDIF.
 
-      MOVE-CORRESPONDING lwa_teven TO lwa_p2011.
-      lwa_p2011-pernr = pi_marca-pernr.
-      lwa_p2011-infty = '2011'.
-      lwa_p2011-begda = pi_marca-ldate.
-      lwa_p2011-endda = pi_marca-ldate.
-      lwa_p2011-user2 = 'ELIM_LOGICA'.   " Indicador provisorio de borrado
+      UPDATE teven SET user2 = @gc_marca_elim
+             WHERE pdsnr = @pi_marca-pdsnr.
+      l_subrc = sy-subrc.
+      IF l_subrc = 0.
+        COMMIT WORK.
+      ELSE.
+        ROLLBACK WORK.
+      ENDIF.
 
-      CALL FUNCTION 'HR_INFOTYPE_OPERATION'
+      CALL FUNCTION 'DEQUEUE_EPPRELE'
         EXPORTING
-          infty         = '2011'
-          number        = pi_marca-pernr
-          record        = lwa_p2011
-          validitybegin = pi_marca-ldate
-          validityend   = pi_marca-ldate
-          operation     = 'MOD'
-          tclas         = 'A'          " Datos maestros de empleados
-        IMPORTING
-          return        = lwa_ret.
-      IF lwa_ret-type = 'E' OR lwa_ret-type = 'A'.
-        " Se registra el mensaje devuelto por la función para diagnóstico
+          pernr = pi_marca-pernr
+          infty = gc_infty_2011.
+
+      IF l_subrc <> 0.
         registrar( pi_marca   = pi_marca
                    pi_accion  = 'ERROR'(a04)
-                   pi_detalle = CONV #( |{ 'Fallo en eliminación lógica'(d07) }: | &
-                                        |{ lwa_ret-message }| )
+                   pi_detalle = 'Fallo en eliminación lógica'(d07)
                    pi_tipo    = 'E' ).
         RETURN.
       ENDIF.

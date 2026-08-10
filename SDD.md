@@ -413,8 +413,11 @@ Notas:
 ## 8. Asuntos pendientes / A validar contra el documento fuente
 - [x] Estructura de TEVEN/IT2011 (`P2011`) — **recibida y documentada**.
 - [ ] Confirmar que el campo referido como `IDTFinal` es `TERID` (CHAR 4, valores `0` / `PORT`).
-- [ ] Definir el indicador de eliminación lógica (¿campo de cliente `PDC_USRUP`/`USER2`, u otro mecanismo?).
-- [ ] Confirmar el mecanismo de actualización: vía IT2011 (`HR_INFOTYPE_OPERATION`) vs. otro.
+- [x] Indicador de eliminación lógica: campo de cliente `USER2` de TEVEN con valor `ELIM_LOGICA`.
+- [x] Mecanismo de actualización (decisión 10.08.2026): `UPDATE` directo a TEVEN con bloqueo
+  `ENQUEUE_EPPRELE`/`DEQUEUE_EPPRELE` y `COMMIT WORK` controlado. `HR_INFOTYPE_OPERATION` con
+  operación `MOD` no está soportado para el IT2011 (escribe directamente sobre TEVEN y solo admite
+  creación). Desviación autorizada del estándar 21.1 por ausencia de BAPI de modificación.
 - [ ] Mecanismo de lectura del cluster B2 utilizado en el sistema (macros/includes estándar o función Z).
 - [ ] Mecanismo de lectura de IT0007 e IT2003 y de actualización de TEVEN (BAPI, módulo Z, actualización directa).
 - [x] Estructura de FEHLER (cluster B2) — **recibida y documentada**.

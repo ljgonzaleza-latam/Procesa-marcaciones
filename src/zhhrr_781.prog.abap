@@ -30,14 +30,15 @@ INCLUDE zhhrr_781_f00.   " Subrutinas (importación cluster B2)
 * START-OF-SELECTION
 *--------------------------------------------------------------------*
 START-OF-SELECTION.
-  " Chequeo de autorización de transacción al inicio (estándar LATAM 7.1)
-  " TODO [SDD 8]: reemplazar por la transacción Z definitiva (ZHHRT_xxx)
-  AUTHORITY-CHECK OBJECT 'S_TCODE'
-    ID 'TCD' FIELD gc_tcode.
-  IF sy-subrc <> 0.
-    MESSAGE 'Sin autorización para ejecutar el programa'(m01) TYPE 'E'.
-    LEAVE PROGRAM.
-  ENDIF.
+  " Chequeo de autorización de transacción (estándar LATAM 7.1).
+  " DESACTIVADO temporalmente hasta contar con la transacción Z
+  " definitiva. TODO [SDD 8]: descomentar al crear la transacción.
+*  AUTHORITY-CHECK OBJECT 'S_TCODE'
+*    ID 'TCD' FIELD gc_tcode.
+*  IF sy-subrc <> 0.
+*    MESSAGE 'Sin autorización para ejecutar el programa'(m01) TYPE 'E'.
+*    LEAVE PROGRAM.
+*  ENDIF.
 
   " Instancia del log SLG1 y del depurador
   CREATE OBJECT go_log

@@ -4,11 +4,10 @@
   <asx:values>
    <PROGDIR>
     <NAME>ZHHRR_781</NAME>
-    <DBAPL>S</DBAPL>
-    <DBNA>PNP</DBNA>
     <SUBC>1</SUBC>
     <RLOAD>S</RLOAD>
     <FIXPT>X</FIXPT>
+    <LDBNAME>PNP</LDBNAME>
     <UCCHECK>X</UCCHECK>
    </PROGDIR>
    <TPOOL>
@@ -87,6 +86,12 @@
      <ID>I</ID>
      <KEY>D08</KEY>
      <ENTRY>Marca Portal duplicada eliminada</ENTRY>
+     <LENGTH>60</LENGTH>
+    </item>
+    <item>
+     <ID>I</ID>
+     <KEY>D09</KEY>
+     <ENTRY>Empleado bloqueado por otro proceso</ENTRY>
      <LENGTH>60</LENGTH>
     </item>
     <item>
