@@ -103,10 +103,13 @@ CLASS lcl_log IMPLEMENTATION.
 
     INSERT l_handle INTO TABLE lt_handles.
 
+    " Se graba SOLO el log propio: con I_SAVE_ALL el framework
+    " intenta persistir también los logs temporales que crean
+    " internamente los módulos estándar (p.ej. HR_INFOTYPE_OPERATION)
+    " y la grabación completa falla con SAVE_NOT_ALLOWED
     CALL FUNCTION 'BAL_DB_SAVE'
       EXPORTING
         i_t_log_handle   = lt_handles
-        i_save_all       = abap_true
       EXCEPTIONS
         log_not_found    = 1
         save_not_allowed = 2
