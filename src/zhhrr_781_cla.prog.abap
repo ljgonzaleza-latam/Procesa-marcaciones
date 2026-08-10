@@ -507,9 +507,11 @@ CLASS lcl_depurador IMPLEMENTATION.
           return        = lwa_ret
           key           = lwa_key.
       IF lwa_ret-type = 'E' OR lwa_ret-type = 'A'.
+        " Se registra el mensaje devuelto por la función para diagnóstico
         registrar( pi_marca   = pi_marca
                    pi_accion  = 'ERROR'(a04)
-                   pi_detalle = 'Fallo al corregir tipo de marca'(d05)
+                   pi_detalle = CONV #( |{ 'Fallo al corregir tipo de marca'(d05) }: | &
+                                        |{ lwa_ret-message }| )
                    pi_tipo    = 'E' ).
         RETURN.
       ENDIF.
@@ -563,9 +565,11 @@ CLASS lcl_depurador IMPLEMENTATION.
         IMPORTING
           return        = lwa_ret.
       IF lwa_ret-type = 'E' OR lwa_ret-type = 'A'.
+        " Se registra el mensaje devuelto por la función para diagnóstico
         registrar( pi_marca   = pi_marca
                    pi_accion  = 'ERROR'(a04)
-                   pi_detalle = 'Fallo en eliminación lógica'(d07)
+                   pi_detalle = CONV #( |{ 'Fallo en eliminación lógica'(d07) }: | &
+                                        |{ lwa_ret-message }| )
                    pi_tipo    = 'E' ).
         RETURN.
       ENDIF.
