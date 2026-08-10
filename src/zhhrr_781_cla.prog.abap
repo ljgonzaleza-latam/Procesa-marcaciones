@@ -521,10 +521,12 @@ CLASS lcl_depurador IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD eliminar_marca_portal.
-    " Eliminación LÓGICA de la marca de Portal (IDTFinal = PORT):
-    " se anula el evento con el indicador estándar STOKZ (los
-    " procesos SAP lo excluyen) y se marca USER2 como auditoría.
-    " La marca original se conserva (nunca borrado físico).
+    " Eliminación de la marca duplicada de Portal (IDTFinal = PORT)
+    " según la opción elegida en pantalla:
+    "  - P_ELIML (lógico): anula el evento con el indicador estándar
+    "    STOKZ (los procesos SAP lo excluyen) y marca USER2 como
+    "    auditoría; el registro se conserva.
+    "  - P_ELIMF (definitivo): borra físicamente el registro de TEVEN.
     DATA: l_subrc TYPE sysubrc.
 
     IF l_test = abap_false.
@@ -549,11 +551,17 @@ CLASS lcl_depurador IMPLEMENTATION.
         RETURN.
       ENDIF.
 
-      " STOKZ = 'X': anulación estándar (la evaluación de tiempos y
-      " los procesos SAP ignoran el evento). USER2: rastro de auditoría
-      UPDATE teven SET stokz = @abap_true,
-                       user2 = @gc_marca_elim
-             WHERE pdsnr = @pi_marca-pdsnr.
+      IF p_elimf = abap_true.
+        " Eliminado DEFINITIVO: borrado físico del evento
+        DELETE FROM teven WHERE pdsnr = @pi_marca-pdsnr.
+      ELSE.
+        " Eliminado LÓGICO: STOKZ = 'X' (anulación estándar, la
+        " evaluación de tiempos y los procesos SAP ignoran el
+        " evento) + USER2 como rastro de auditoría
+        UPDATE teven SET stokz = @abap_true,
+                         user2 = @gc_marca_elim
+               WHERE pdsnr = @pi_marca-pdsnr.
+      ENDIF.
       l_subrc = sy-subrc.
       IF l_subrc = 0.
         COMMIT WORK.
@@ -575,9 +583,15 @@ CLASS lcl_depurador IMPLEMENTATION.
       ENDIF.
     ENDIF.
 
-    registrar( pi_marca   = pi_marca
-               pi_accion  = 'ELIM.LOGICA'(a02)
-               pi_detalle = 'Marca Portal duplicada eliminada'(d08) ).
+    IF p_elimf = abap_true.
+      registrar( pi_marca   = pi_marca
+                 pi_accion  = 'ELIM.FISICA'(a05)
+                 pi_detalle = 'Marca Portal borrada definitivamente'(d10) ).
+    ELSE.
+      registrar( pi_marca   = pi_marca
+                 pi_accion  = 'ELIM.LOGICA'(a02)
+                 pi_detalle = 'Marca Portal duplicada eliminada'(d08) ).
+    ENDIF.
   ENDMETHOD.
 
   METHOD registrar.

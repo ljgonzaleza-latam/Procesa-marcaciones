@@ -54,6 +54,12 @@
     </item>
     <item>
      <ID>I</ID>
+     <KEY>A05</KEY>
+     <ENTRY>ELIM.FISICA</ENTRY>
+     <LENGTH>20</LENGTH>
+    </item>
+    <item>
+     <ID>I</ID>
      <KEY>D01</KEY>
      <ENTRY>Sin horario vigente determinable</ENTRY>
      <LENGTH>60</LENGTH>
@@ -96,6 +102,12 @@
     </item>
     <item>
      <ID>I</ID>
+     <KEY>D10</KEY>
+     <ENTRY>Marca Portal borrada definitivamente</ENTRY>
+     <LENGTH>60</LENGTH>
+    </item>
+    <item>
+     <ID>I</ID>
      <KEY>M01</KEY>
      <ENTRY>Sin autorización para ejecutar el programa</ENTRY>
      <LENGTH>60</LENGTH>
@@ -129,6 +141,18 @@
      <KEY>M06</KEY>
      <ENTRY>Objeto de log no existe en SLG0; log sin clasificar</ENTRY>
      <LENGTH>60</LENGTH>
+    </item>
+    <item>
+     <ID>S</ID>
+     <KEY>P_ELIMF</KEY>
+     <ENTRY>Eliminado definitivo (borrado físico)</ENTRY>
+     <LENGTH>40</LENGTH>
+    </item>
+    <item>
+     <ID>S</ID>
+     <KEY>P_ELIML</KEY>
+     <ENTRY>Eliminado lógico (anulación STOKZ)</ENTRY>
+     <LENGTH>40</LENGTH>
     </item>
     <item>
      <ID>S</ID>

@@ -11,6 +11,8 @@
 *&   TEXT-001 = Parámetros de proceso                         *
 *&   TEXT-002 = Identificación de marca duplicada (FEHLER)    *
 *&   P_TEST  = Modo simulación (no actualiza TEVEN)           *
+*&   P_ELIML = Eliminado lógico (anula con STOKZ)             *
+*&   P_ELIMF = Eliminado definitivo (borrado físico)          *
 *&   S_ERRTY = Tipo de clase de notificación                  *
 *&   S_ERROR = Número de la clase de notificación             *
 *&============================================================*
@@ -19,6 +21,12 @@ SELECTION-SCREEN BEGIN OF BLOCK b01 WITH FRAME TITLE TEXT-001. " Parámetros de 
 
 " Modo simulación: no actualiza TEVEN ni graba log definitivo
 PARAMETERS: p_test AS CHECKBOX DEFAULT 'X'.
+
+" Tipo de eliminación de la marca duplicada de Portal:
+"   - Lógico:     anula el evento (STOKZ = 'X'); el registro se conserva
+"   - Definitivo: borra físicamente el registro de TEVEN
+PARAMETERS: p_eliml RADIOBUTTON GROUP gr1 DEFAULT 'X',  " Eliminado lógico
+            p_elimf RADIOBUTTON GROUP gr1.              " Eliminado definitivo
 
 SELECTION-SCREEN END OF BLOCK b01.
 

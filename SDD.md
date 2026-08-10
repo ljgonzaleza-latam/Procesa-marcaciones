@@ -413,9 +413,12 @@ Notas:
 ## 8. Asuntos pendientes / A validar contra el documento fuente
 - [x] Estructura de TEVEN/IT2011 (`P2011`) — **recibida y documentada**.
 - [ ] Confirmar que el campo referido como `IDTFinal` es `TERID` (CHAR 4, valores `0` / `PORT`).
-- [x] Indicador de eliminación lógica: `STOKZ = 'X'` (indicador estándar de anulación de evento,
-  respetado por la evaluación de tiempos) + campo de cliente `USER2 = ELIM_LOGICA` como rastro de
-  auditoría del programa. La selección de marcas excluye eventos con `STOKZ` marcado (idempotencia).
+- [x] Modo de eliminación seleccionable en pantalla (radiobuttons, decisión 10.08.2026):
+  - **Eliminado lógico** (`P_ELIML`, opción por defecto): `STOKZ = 'X'` (indicador estándar de
+    anulación de evento, respetado por la evaluación de tiempos) + campo de cliente
+    `USER2 = ELIM_LOGICA` como rastro de auditoría. El registro se conserva.
+  - **Eliminado definitivo** (`P_ELIMF`): borrado físico del registro de TEVEN (`DELETE`).
+  - La selección de marcas excluye eventos con `STOKZ` marcado (idempotencia del reproceso).
 - [x] Mecanismo de actualización (decisión 10.08.2026): `UPDATE` directo a TEVEN con bloqueo
   `ENQUEUE_EPPRELE`/`DEQUEUE_EPPRELE` y `COMMIT WORK` controlado. `HR_INFOTYPE_OPERATION` con
   operación `MOD` no está soportado para el IT2011 (escribe directamente sobre TEVEN y solo admite
