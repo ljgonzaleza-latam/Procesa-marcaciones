@@ -211,7 +211,7 @@ Programa de proceso (batch/bajo demanda) con cuatro bloques:
 | Mensajes de evaluación de tiempos | **Estructura confirmada: tabla `FEHLER` del cluster B2 (`PCL2`)**, importada con las herramientas estándar del cluster. Campos relevantes: `LDATE`/`LTIME` (fecha/hora lógica), `ERRTY` (tipo de clase de notificación, CHAR 1), `ERROR` (número de la clase de notificación, CHAR 2), `MESTY` (tipo de mensaje: E=Error, A=interrupción, ' '=indicación), `PDSNR` (NUMC 12, **referencia directa al evento de TEVEN/IT2011 implicado**), `STATUS` (status de tratamiento del mensaje), `UTEXT` (texto adicional). **[PENDIENTE — confirmar valores de `ERRTY`/`ERROR` que identifican la marca duplicada]** |
 | Horario teórico | Infotipo 0007 (estructura `P0007`) y determinación del horario del día a partir de la regla de plan de horario de trabajo. |
 | Suplencias | Infotipo 2003 (estructura `P2003`). |
-| Log de aplicación | Framework BAL (SLG1): funciones `BAL_LOG_CREATE`, `BAL_LOG_MSG_ADD`, `BAL_DB_SAVE`. Objeto: `ZHR_MARCAS` (sin subobjeto), dado de alta en SLG0. |
+| Log de aplicación | Framework BAL (SLG1): funciones `BAL_LOG_CREATE`, `BAL_LOG_MSG_ADD`, `BAL_DB_SAVE`. Objeto: `ZHR_MARCAS`, subobjeto: `ZDEPURA_MARCAS`, dados de alta en SLG0. |
 
 - **Nota:** no se iniciará la codificación hasta la aprobación explícita de este diseño y la confirmación de las estructuras pendientes.
 
@@ -420,7 +420,7 @@ Notas:
 - [x] Estructura de FEHLER (cluster B2) — **recibida y documentada**.
 - [ ] Valores exactos de `ERRTY`/`ERROR` en FEHLER que identifican la "marca duplicada".
 - [ ] Confirmar si tras depurar se debe actualizar el `STATUS` del mensaje en FEHLER (marcarlo como tratado) o si se deja que la siguiente evaluación de tiempos lo limpie.
-- [x] Objeto del log de aplicación (SLG1): `ZHR_MARCAS`, sin subobjeto (creado en SLG0).
+- [x] Objeto del log de aplicación (SLG1): `ZHR_MARCAS` / subobjeto `ZDEPURA_MARCAS` (creados en SLG0).
 - [ ] Campo/indicador exacto para la eliminación lógica en TEVEN.
 - [ ] Ventana de proximidad: **desactivada temporalmente** (decisión del 10.08.2026). La clasificación
   P10/P20 se hace por cercanía simple a la hora de entrada/salida del horario vigente, sin ventana ni

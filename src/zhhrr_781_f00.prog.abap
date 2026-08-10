@@ -36,14 +36,15 @@ FORM f_leer_fehler_b2 USING pu_pernr TYPE pernr_d
 
   " Filtro por los mensajes de marca duplicada seleccionados
   " (múltiples clases/números vía SELECT-OPTIONS)
-  LOOP AT fehler WHERE errty IN s_errty
-                   AND error IN s_error
-                   AND ldate BETWEEN pu_begda AND pu_endda.
+  LOOP AT fehler INTO DATA(lwa_fehler)
+       WHERE errty IN s_errty
+         AND error IN s_error
+         AND ldate BETWEEN pu_begda AND pu_endda. "#EC CI_STDSEQ
     " Un día se procesa una sola vez aunque tenga varios mensajes
-    READ TABLE pc_dias WITH KEY table_line = fehler-ldate
-         TRANSPORTING NO FIELDS.
+    READ TABLE pc_dias WITH KEY table_line = lwa_fehler-ldate
+         TRANSPORTING NO FIELDS.                  "#EC CI_STDSEQ
     IF sy-subrc <> 0.
-      APPEND fehler-ldate TO pc_dias.
+      APPEND lwa_fehler-ldate TO pc_dias.
     ENDIF.
   ENDLOOP.
 ENDFORM.

@@ -27,9 +27,9 @@ INCLUDE zhhrr_781_cla.   " Clases locales (lógica del proceso)
 INCLUDE zhhrr_781_f00.   " Subrutinas (importación cluster B2)
 
 *--------------------------------------------------------------------*
-* INITIALIZATION
+* START-OF-SELECTION
 *--------------------------------------------------------------------*
-INITIALIZATION.
+START-OF-SELECTION.
   " Chequeo de autorización de transacción al inicio (estándar LATAM 7.1)
   " TODO [SDD 8]: reemplazar por la transacción Z definitiva (ZHHRT_xxx)
   AUTHORITY-CHECK OBJECT 'S_TCODE'
@@ -39,10 +39,6 @@ INITIALIZATION.
     LEAVE PROGRAM.
   ENDIF.
 
-*--------------------------------------------------------------------*
-* START-OF-SELECTION
-*--------------------------------------------------------------------*
-START-OF-SELECTION.
   " Instancia del log SLG1 y del depurador
   CREATE OBJECT go_log
     EXPORTING
@@ -58,9 +54,9 @@ START-OF-SELECTION.
 GET pernr.
   " Procesa cada empleado entregado por la LDB PNP según selección
   go_depurador->procesar_empleado(
-    pu_pernr = pernr-pernr
-    pu_begda = pn-begda
-    pu_endda = pn-endda ).
+    pi_pernr = pernr-pernr
+    pi_begda = pn-begda
+    pi_endda = pn-endda ).
 
 *--------------------------------------------------------------------*
 * END-OF-SELECTION

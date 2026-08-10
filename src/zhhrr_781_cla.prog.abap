@@ -138,9 +138,9 @@ CLASS lcl_depurador DEFINITION FINAL.
                   pi_log  TYPE REF TO lcl_log,
       " Procesa un empleado entregado por la LDB PNP (SDD 4.1)
       procesar_empleado
-        IMPORTING pu_pernr TYPE pernr_d
-                  pu_begda TYPE begda
-                  pu_endda TYPE endda,
+        IMPORTING pi_pernr TYPE pernr_d
+                  pi_begda TYPE begda
+                  pi_endda TYPE endda,
       " Muestra el resultado consolidado en ALV
       mostrar_resultado.
 
@@ -152,41 +152,41 @@ CLASS lcl_depurador DEFINITION FINAL.
       " Paso 1: lee FEHLER del cluster B2 y devuelve días con
       " mensaje de marca duplicada (filtro de entrada del proceso)
       leer_dias_con_duplicados
-        IMPORTING pu_pernr        TYPE pernr_d
-                  pu_begda        TYPE begda
-                  pu_endda        TYPE endda
+        IMPORTING pi_pernr        TYPE pernr_d
+                  pi_begda        TYPE begda
+                  pi_endda        TYPE endda
         RETURNING VALUE(pr_dias)  TYPE gty_t_fechas,
 
       " Pasos 2-6: procesa las marcas de un día concreto
       procesar_dia
-        IMPORTING pu_pernr TYPE pernr_d
-                  pu_datum TYPE datum,
+        IMPORTING pi_pernr TYPE pernr_d
+                  pi_datum TYPE datum,
 
       " Paso 3 (SDD 4.2): horario vigente; IT2003 prevalece sobre IT0007
       obtener_horario_vigente
-        IMPORTING pu_datum          TYPE datum
+        IMPORTING pi_datum          TYPE datum
         RETURNING VALUE(pr_horario) TYPE gty_horario,
 
       " Obtiene entrada/salida del plan de horario diario (T552A/T550A)
       leer_horario_teorico
-        IMPORTING pu_datum          TYPE datum
+        IMPORTING pi_datum          TYPE datum
         RETURNING VALUE(pr_horario) TYPE gty_horario,
 
       " Paso 4 (SDD 4.3): corrige clase de hecho P10 <-> P20 en TEVEN
       corregir_tipo_marca
-        IMPORTING pu_marca TYPE gty_marca
-                  pu_nuevo TYPE retyp,
+        IMPORTING pi_marca TYPE gty_marca
+                  pi_nuevo TYPE retyp,
 
       " Paso 5 (SDD 4.4): eliminación lógica de la marca de Portal
       eliminar_marca_portal
-        IMPORTING pu_marca TYPE gty_marca,
+        IMPORTING pi_marca TYPE gty_marca,
 
       " Registra un resultado en la tabla de salida y en SLG1
       registrar
-        IMPORTING pu_marca   TYPE gty_marca
-                  pu_accion  TYPE char20
-                  pu_detalle TYPE char80
-                  pu_tipo    TYPE symsgty DEFAULT 'S'.
+        IMPORTING pi_marca   TYPE gty_marca
+                  pi_accion  TYPE char20
+                  pi_detalle TYPE char80
+                  pi_tipo    TYPE symsgty DEFAULT 'S'.
 ENDCLASS.
 
 *--------------------------------------------------------------------*
@@ -203,16 +203,16 @@ CLASS lcl_depurador IMPLEMENTATION.
     DATA: lt_dias TYPE gty_t_fechas.
 
     " Paso 1: días con mensaje de marca duplicada según FEHLER
-    lt_dias = leer_dias_con_duplicados( pu_pernr = pu_pernr
-                                        pu_begda = pu_begda
-                                        pu_endda = pu_endda ).
+    lt_dias = leer_dias_con_duplicados( pi_pernr = pi_pernr
+                                        pi_begda = pi_begda
+                                        pi_endda = pi_endda ).
     IF lt_dias IS INITIAL.
       RETURN.   " Sin error de duplicados: el empleado no se procesa
     ENDIF.
 
     LOOP AT lt_dias REFERENCE INTO DATA(lr_dia).
-      procesar_dia( pu_pernr = pu_pernr
-                    pu_datum = lr_dia->* ).
+      procesar_dia( pi_pernr = pi_pernr
+                    pi_datum = lr_dia->* ).
     ENDLOOP.
   ENDMETHOD.
 
@@ -224,16 +224,16 @@ CLASS lcl_depurador IMPLEMENTATION.
     " Recorre los períodos mensuales del rango e importa el cluster B2.
     " La importación se delega a una FORM (include ZHHRR_781_F00)
     " porque las macros RP-IMP-* no están soportadas en contexto OO.
-    l_fecha = pu_begda.
-    WHILE l_fecha <= pu_endda.
+    l_fecha = pi_begda.
+    WHILE l_fecha <= pi_endda.
       l_pabrj = l_fecha(4).
       l_pabrp = l_fecha+4(2).
 
-      PERFORM f_leer_fehler_b2 USING pu_pernr
+      PERFORM f_leer_fehler_b2 USING pi_pernr
                                      l_pabrj
                                      l_pabrp
-                                     pu_begda
-                                     pu_endda
+                                     pi_begda
+                                     pi_endda
                             CHANGING pr_dias.
 
       " Avanza al primer día del mes siguiente
@@ -252,13 +252,15 @@ CLASS lcl_depurador IMPLEMENTATION.
     "----------------------------------------------------------------
     " Lectura de las marcaciones del día en TEVEN (solo lectura)
     "----------------------------------------------------------------
+    " Lectura por día dentro del GET PERNR: el volumen es acotado
+    " (solo días con error de duplicado según FEHLER)
     SELECT pernr, ldate, ltime, pdsnr, satza, terid
       FROM teven
       INTO CORRESPONDING FIELDS OF TABLE @lt_marcas
-      WHERE pernr = @pu_pernr
-        AND ldate = @pu_datum
+      WHERE pernr = @pi_pernr
+        AND ldate = @pi_datum
         AND ( satza = @gc_satza_entrada OR satza = @gc_satza_salida )
-      ORDER BY ltime.
+      ORDER BY ltime.                            "#EC CI_SEL_NESTED
     IF sy-subrc <> 0.
       RETURN.
     ENDIF.
@@ -266,12 +268,12 @@ CLASS lcl_depurador IMPLEMENTATION.
     "----------------------------------------------------------------
     " Paso 3: horario vigente (IT2003 prevalece SIEMPRE sobre IT0007)
     "----------------------------------------------------------------
-    DATA(lwa_horario) = obtener_horario_vigente( pu_datum ).
+    DATA(lwa_horario) = obtener_horario_vigente( pi_datum ).
     IF lwa_horario-beguz IS INITIAL AND lwa_horario-enduz IS INITIAL.
-      registrar( pu_marca   = VALUE #( pernr = pu_pernr ldate = pu_datum )
-                 pu_accion  = 'NO PROCESADA'(a03)
-                 pu_detalle = 'Sin horario vigente determinable'(d01)
-                 pu_tipo    = 'W' ).
+      registrar( pi_marca   = VALUE #( pernr = pi_pernr ldate = pi_datum )
+                 pi_accion  = 'NO PROCESADA'(a03)
+                 pi_detalle = 'Sin horario vigente determinable'(d01)
+                 pi_tipo    = 'W' ).
       RETURN.
     ENDIF.
 
@@ -280,7 +282,8 @@ CLASS lcl_depurador IMPLEMENTATION.
     "----------------------------------------------------------------
     " Sin ventana de proximidad: la marca se clasifica según la hora
     " del horario vigente más cercana (entrada o salida)
-    LOOP AT lt_marcas REFERENCE INTO DATA(lr_marca).
+    " (pocas marcas por día: el acceso secuencial no impacta)
+    LOOP AT lt_marcas REFERENCE INTO DATA(lr_marca). "#EC CI_STDSEQ
       l_dif_ent = abs( lr_marca->ltime - lwa_horario-beguz ).
       l_dif_sal = abs( lr_marca->ltime - lwa_horario-enduz ).
 
@@ -289,8 +292,8 @@ CLASS lcl_depurador IMPLEMENTATION.
                            ELSE gc_satza_salida ).
 
       IF lr_marca->satza <> l_esperado.
-        corregir_tipo_marca( pu_marca = lr_marca->*
-                             pu_nuevo = l_esperado ).
+        corregir_tipo_marca( pi_marca = lr_marca->*
+                             pi_nuevo = l_esperado ).
         lr_marca->satza = l_esperado.   " Refleja la corrección en memoria
       ENDIF.
     ENDLOOP.
@@ -304,9 +307,9 @@ CLASS lcl_depurador IMPLEMENTATION.
                                  THEN gc_satza_entrada
                                  ELSE gc_satza_salida ).
 
-      DATA(lt_evento) = VALUE gty_t_marcas( FOR lwa IN lt_marcas
+      DATA(lt_evento) = VALUE gty_t_marcas( FOR lwa_marca IN lt_marcas
                                             WHERE ( satza = l_tipo )
-                                            ( lwa ) ).
+                                            ( lwa_marca ) ). "#EC CI_STDSEQ "#EC CI_NESTED
       IF lines( lt_evento ) < 2.
         CONTINUE.   " Sin duplicado para este evento
       ENDIF.
@@ -316,7 +319,7 @@ CLASS lcl_depurador IMPLEMENTATION.
       " (el reloj control puede informar 0 u otro ID de terminal)
       DATA(l_hay_reloj) = abap_false.
       LOOP AT lt_evento TRANSPORTING NO FIELDS
-           WHERE terid <> gc_idt_portal.
+           WHERE terid <> gc_idt_portal. "#EC CI_STDSEQ "#EC CI_NESTED
         l_hay_reloj = abap_true.
         EXIT.
       ENDLOOP.
@@ -325,16 +328,16 @@ CLASS lcl_depurador IMPLEMENTATION.
       IF l_hay_reloj = abap_true AND l_hay_portal = abap_true.
         " Regla fija: SIEMPRE prevalece la marca que no es PORT
         LOOP AT lt_evento REFERENCE INTO DATA(lr_portal)
-             WHERE terid = gc_idt_portal.
+             WHERE terid = gc_idt_portal. "#EC CI_STDSEQ "#EC CI_NESTED
           eliminar_marca_portal( lr_portal->* ).
         ENDLOOP.
       ELSE.
         " Duplicado del mismo origen: fuera de alcance de esta fase
-        LOOP AT lt_evento REFERENCE INTO DATA(lr_dup).
-          registrar( pu_marca   = lr_dup->*
-                     pu_accion  = 'NO PROCESADA'(a03)
-                     pu_detalle = 'Duplicado del mismo origen'(d04)
-                     pu_tipo    = 'W' ).
+        LOOP AT lt_evento REFERENCE INTO DATA(lr_dup). "#EC CI_STDSEQ "#EC CI_NESTED
+          registrar( pi_marca   = lr_dup->*
+                     pi_accion  = 'NO PROCESADA'(a03)
+                     pi_detalle = 'Duplicado del mismo origen'(d04)
+                     pi_tipo    = 'W' ).
         ENDLOOP.
       ENDIF.
     ENDDO.
@@ -345,7 +348,7 @@ CLASS lcl_depurador IMPLEMENTATION.
     " Suplencia (IT2003): prevalece SIEMPRE sobre el horario teórico
     "----------------------------------------------------------------
     LOOP AT p2003 REFERENCE INTO DATA(lr_supl)
-         WHERE begda <= pu_datum AND endda >= pu_datum.
+         WHERE begda <= pi_datum AND endda >= pi_datum. "#EC CI_STDSEQ
 
       IF lr_supl->beguz IS NOT INITIAL OR lr_supl->enduz IS NOT INITIAL.
         " La suplencia trae horas explícitas
@@ -358,14 +361,16 @@ CLASS lcl_depurador IMPLEMENTATION.
       " Suplencia por plan de horario diario (TPROG) -> T550A
       " (SOBEG/SOEND: inicio/fin del horario de trabajo teórico)
       IF lr_supl->tprog IS NOT INITIAL.
+        " T550A es tabla con buffer genérico y clave parcial: lectura
+        " puntual de baja frecuencia (1 por suplencia con TPROG)
         SELECT sobeg, soend
           FROM t550a
           INTO TABLE @DATA(lt_t550a)
           UP TO 1 ROWS
           WHERE tprog = @lr_supl->tprog
-            AND endda >= @pu_datum
-            AND begda <= @pu_datum
-          ORDER BY motpr, varia, seqno.
+            AND endda >= @pi_datum
+            AND begda <= @pi_datum
+          ORDER BY motpr, varia, seqno. "#EC CI_GENBUFF "#EC CI_SEL_NESTED
         IF sy-subrc = 0.
           pr_horario-beguz  = lt_t550a[ 1 ]-sobeg.
           pr_horario-enduz  = lt_t550a[ 1 ]-soend.
@@ -378,7 +383,7 @@ CLASS lcl_depurador IMPLEMENTATION.
     "----------------------------------------------------------------
     " Sin suplencia: horario teórico del IT0007
     "----------------------------------------------------------------
-    pr_horario = leer_horario_teorico( pu_datum ).
+    pr_horario = leer_horario_teorico( pi_datum ).
   ENDMETHOD.
 
   METHOD leer_horario_teorico.
@@ -391,7 +396,7 @@ CLASS lcl_depurador IMPLEMENTATION.
 
     " Regla de plan de horario del IT0007 vigente en la fecha
     LOOP AT p0007 REFERENCE INTO DATA(lr_p0007)
-         WHERE begda <= pu_datum AND endda >= pu_datum.
+         WHERE begda <= pi_datum AND endda >= pi_datum. "#EC CI_STDSEQ
       l_schkz = lr_p0007->schkz.
       EXIT.
     ENDLOOP.
@@ -401,7 +406,7 @@ CLASS lcl_depurador IMPLEMENTATION.
 
     " Agrupadores desde la asignación organizativa (IT0001)
     LOOP AT p0001 REFERENCE INTO DATA(lr_p0001)
-         WHERE begda <= pu_datum AND endda >= pu_datum.
+         WHERE begda <= pi_datum AND endda >= pi_datum. "#EC CI_STDSEQ
 
       " Agrupador de subdivisión de personal para planes de horario
       " y calendario de festivos (ambos parte de la clave de T552A)
@@ -423,15 +428,15 @@ CLASS lcl_depurador IMPLEMENTATION.
     " Plan de horario mensual generado (T552A): TPROG del día.
     " Lectura dinámica del campo TPRnn correspondiente al día del
     " mes (evita SELECT * según estándar LATAM)
-    l_campo = |TPR{ pu_datum+6(2) }|.
+    l_campo = |TPR{ pi_datum+6(2) }|.
     SELECT SINGLE (l_campo)
       FROM t552a
       WHERE zeity = @l_zeity
         AND mofid = @l_mofid
         AND mosid = @l_mosid
         AND schkz = @l_schkz
-        AND kjahr = @pu_datum(4)
-        AND monat = @pu_datum+4(2)
+        AND kjahr = @pi_datum(4)
+        AND monat = @pi_datum+4(2)
       INTO @l_tprog.
     IF sy-subrc <> 0 OR l_tprog IS INITIAL.
       RETURN.
@@ -441,14 +446,16 @@ CLASS lcl_depurador IMPLEMENTATION.
     " SOBEG/SOEND: inicio/fin del horario de trabajo teórico.
     " TODO [SDD 8]: incluir el agrupador MOTPR según el customizing
     " del sistema (asignación MOSID -> MOTPR) si existe más de uno.
+    " T550A es tabla con buffer genérico y clave parcial: lectura
+    " puntual (1 por día procesado)
     SELECT sobeg, soend
       FROM t550a
       INTO TABLE @DATA(lt_t550a)
       UP TO 1 ROWS
       WHERE tprog = @l_tprog
-        AND endda >= @pu_datum
-        AND begda <= @pu_datum
-      ORDER BY motpr, varia, seqno.
+        AND endda >= @pi_datum
+        AND begda <= @pi_datum
+      ORDER BY motpr, varia, seqno. "#EC CI_GENBUFF "#EC CI_SEL_NESTED
     IF sy-subrc = 0.
       pr_horario-beguz  = lt_t550a[ 1 ]-sobeg.
       pr_horario-enduz  = lt_t550a[ 1 ]-soend.
@@ -470,47 +477,47 @@ CLASS lcl_depurador IMPLEMENTATION.
       SELECT SINGLE pernr, ldate, ltime, erdat, ertim, satza,
                     terid, abwgr, origf, zeinh, hrazl, dallf, pdsnr
         FROM teven
-        WHERE pdsnr = @pu_marca-pdsnr
-        INTO @DATA(lwa_teven).
+        WHERE pdsnr = @pi_marca-pdsnr
+        INTO @DATA(lwa_teven).                   "#EC CI_SEL_NESTED
       IF sy-subrc <> 0.
-        registrar( pu_marca   = pu_marca
-                   pu_accion  = 'ERROR'(a04)
-                   pu_detalle = 'Fallo al corregir tipo de marca'(d05)
-                   pu_tipo    = 'E' ).
+        registrar( pi_marca   = pi_marca
+                   pi_accion  = 'ERROR'(a04)
+                   pi_detalle = 'Fallo al corregir tipo de marca'(d05)
+                   pi_tipo    = 'E' ).
         RETURN.
       ENDIF.
 
       MOVE-CORRESPONDING lwa_teven TO lwa_p2011.
-      lwa_p2011-pernr = pu_marca-pernr.
+      lwa_p2011-pernr = pi_marca-pernr.
       lwa_p2011-infty = '2011'.
-      lwa_p2011-begda = pu_marca-ldate.
-      lwa_p2011-endda = pu_marca-ldate.
-      lwa_p2011-satza = pu_nuevo.
+      lwa_p2011-begda = pi_marca-ldate.
+      lwa_p2011-endda = pi_marca-ldate.
+      lwa_p2011-satza = pi_nuevo.
 
       CALL FUNCTION 'HR_INFOTYPE_OPERATION'
         EXPORTING
           infty         = '2011'
-          number        = pu_marca-pernr
+          number        = pi_marca-pernr
           record        = lwa_p2011
-          validitybegin = pu_marca-ldate
-          validityend   = pu_marca-ldate
+          validitybegin = pi_marca-ldate
+          validityend   = pi_marca-ldate
           operation     = 'MOD'
           tclas         = 'A'          " Datos maestros de empleados
         IMPORTING
           return        = lwa_ret
           key           = lwa_key.
       IF lwa_ret-type = 'E' OR lwa_ret-type = 'A'.
-        registrar( pu_marca   = pu_marca
-                   pu_accion  = 'ERROR'(a04)
-                   pu_detalle = 'Fallo al corregir tipo de marca'(d05)
-                   pu_tipo    = 'E' ).
+        registrar( pi_marca   = pi_marca
+                   pi_accion  = 'ERROR'(a04)
+                   pi_detalle = 'Fallo al corregir tipo de marca'(d05)
+                   pi_tipo    = 'E' ).
         RETURN.
       ENDIF.
     ENDIF.
 
-    registrar( pu_marca   = pu_marca
-               pu_accion  = 'CORRECCION'(a01)
-               pu_detalle = |{ 'Tipo corregido a'(d06) } { pu_nuevo }| ).
+    registrar( pi_marca   = pi_marca
+               pi_accion  = 'CORRECCION'(a01)
+               pi_detalle = |{ 'Tipo corregido a'(d06) } { pi_nuevo }| ).
   ENDMETHOD.
 
   METHOD eliminar_marca_portal.
@@ -527,65 +534,65 @@ CLASS lcl_depurador IMPLEMENTATION.
       SELECT SINGLE pernr, ldate, ltime, erdat, ertim, satza,
                     terid, abwgr, origf, zeinh, hrazl, dallf, pdsnr
         FROM teven
-        WHERE pdsnr = @pu_marca-pdsnr
-        INTO @DATA(lwa_teven).
+        WHERE pdsnr = @pi_marca-pdsnr
+        INTO @DATA(lwa_teven).                   "#EC CI_SEL_NESTED
       IF sy-subrc <> 0.
-        registrar( pu_marca   = pu_marca
-                   pu_accion  = 'ERROR'(a04)
-                   pu_detalle = 'Fallo en eliminación lógica'(d07)
-                   pu_tipo    = 'E' ).
+        registrar( pi_marca   = pi_marca
+                   pi_accion  = 'ERROR'(a04)
+                   pi_detalle = 'Fallo en eliminación lógica'(d07)
+                   pi_tipo    = 'E' ).
         RETURN.
       ENDIF.
 
       MOVE-CORRESPONDING lwa_teven TO lwa_p2011.
-      lwa_p2011-pernr = pu_marca-pernr.
+      lwa_p2011-pernr = pi_marca-pernr.
       lwa_p2011-infty = '2011'.
-      lwa_p2011-begda = pu_marca-ldate.
-      lwa_p2011-endda = pu_marca-ldate.
+      lwa_p2011-begda = pi_marca-ldate.
+      lwa_p2011-endda = pi_marca-ldate.
       lwa_p2011-user2 = 'ELIM_LOGICA'.   " Indicador provisorio de borrado
 
       CALL FUNCTION 'HR_INFOTYPE_OPERATION'
         EXPORTING
           infty         = '2011'
-          number        = pu_marca-pernr
+          number        = pi_marca-pernr
           record        = lwa_p2011
-          validitybegin = pu_marca-ldate
-          validityend   = pu_marca-ldate
+          validitybegin = pi_marca-ldate
+          validityend   = pi_marca-ldate
           operation     = 'MOD'
           tclas         = 'A'          " Datos maestros de empleados
         IMPORTING
           return        = lwa_ret.
       IF lwa_ret-type = 'E' OR lwa_ret-type = 'A'.
-        registrar( pu_marca   = pu_marca
-                   pu_accion  = 'ERROR'(a04)
-                   pu_detalle = 'Fallo en eliminación lógica'(d07)
-                   pu_tipo    = 'E' ).
+        registrar( pi_marca   = pi_marca
+                   pi_accion  = 'ERROR'(a04)
+                   pi_detalle = 'Fallo en eliminación lógica'(d07)
+                   pi_tipo    = 'E' ).
         RETURN.
       ENDIF.
     ENDIF.
 
-    registrar( pu_marca   = pu_marca
-               pu_accion  = 'ELIM.LOGICA'(a02)
-               pu_detalle = 'Marca Portal duplicada eliminada'(d08) ).
+    registrar( pi_marca   = pi_marca
+               pi_accion  = 'ELIM.LOGICA'(a02)
+               pi_detalle = 'Marca Portal duplicada eliminada'(d08) ).
   ENDMETHOD.
 
   METHOD registrar.
     " Tabla de resultados para el ALV final
-    INSERT VALUE gty_resultado( pernr   = pu_marca-pernr
-                                ldate   = pu_marca-ldate
-                                ltime   = pu_marca-ltime
-                                pdsnr   = pu_marca-pdsnr
-                                terid   = pu_marca-terid
-                                accion  = pu_accion
-                                detalle = pu_detalle )
+    INSERT VALUE gty_resultado( pernr   = pi_marca-pernr
+                                ldate   = pi_marca-ldate
+                                ltime   = pi_marca-ltime
+                                pdsnr   = pi_marca-pdsnr
+                                terid   = pi_marca-terid
+                                accion  = pi_accion
+                                detalle = pi_detalle )
            INTO TABLE gt_resultado.
 
     " Registro en SLG1: siempre que exista un cambio o novedad
     lo_log->agregar(
-      pi_tipo  = pu_tipo
-      pi_texto = |PERNR { pu_marca-pernr } { pu_marca-ldate } | &
-                 |{ pu_marca-ltime } PDSNR { pu_marca-pdsnr }: | &
-                 |{ pu_accion } - { pu_detalle }| ).
+      pi_tipo  = pi_tipo
+      pi_texto = |PERNR { pi_marca-pernr } { pi_marca-ldate } | &
+                 |{ pi_marca-ltime } PDSNR { pi_marca-pdsnr }: | &
+                 |{ pi_accion } - { pi_detalle }| ).
   ENDMETHOD.
 
   METHOD mostrar_resultado.

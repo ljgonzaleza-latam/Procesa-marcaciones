@@ -80,10 +80,9 @@ CONSTANTS:
   gc_fuente_supl   TYPE char6      VALUE 'IT2003',
   gc_fuente_teor   TYPE char6      VALUE 'IT0007',
   gc_tcode         TYPE sy-tcode   VALUE 'ZHHRT_781', " TODO [SDD 8] confirmar Tx
-  " Objeto de log de aplicación (debe existir en SLG0).
-  " Subobjeto vacío: solo informarlo si se da de alta en SLG0.
+  " Objeto/subobjeto de log de aplicación (dados de alta en SLG0)
   gc_log_objeto    TYPE balobj_d   VALUE 'ZHR_MARCAS',
-  gc_log_subobjeto TYPE balsubobj  VALUE ''.
+  gc_log_subobjeto TYPE balsubobj  VALUE 'ZDEPURA_MARCAS'.
 
 *--------------------------------------------------------------------*
 * Variables globales
