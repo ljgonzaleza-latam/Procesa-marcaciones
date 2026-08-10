@@ -49,9 +49,8 @@ START-OF-SELECTION.
       pi_test = p_test.
   CREATE OBJECT go_depurador
     EXPORTING
-      pi_test    = p_test
-      pi_ventana = p_venta
-      pi_log     = go_log.
+      pi_test = p_test
+      pi_log  = go_log.
 
 *--------------------------------------------------------------------*
 * GET PERNR - bucle estándar de la BD lógica PNP

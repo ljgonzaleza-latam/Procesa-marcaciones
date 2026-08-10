@@ -11,9 +11,8 @@
 *&   TEXT-001 = Parámetros de proceso                         *
 *&   TEXT-002 = Identificación de marca duplicada (FEHLER)    *
 *&   P_TEST  = Modo simulación (no actualiza TEVEN)           *
-*&   P_VENTA = Ventana de proximidad (horas)                  *
-*&   P_ERRTY = Tipo de clase de notificación                  *
-*&   P_ERROR = Número de la clase de notificación             *
+*&   S_ERRTY = Tipo de clase de notificación                  *
+*&   S_ERROR = Número de la clase de notificación             *
 *&============================================================*
 
 SELECTION-SCREEN BEGIN OF BLOCK b01 WITH FRAME TITLE TEXT-001. " Parámetros de proceso
@@ -21,17 +20,14 @@ SELECTION-SCREEN BEGIN OF BLOCK b01 WITH FRAME TITLE TEXT-001. " Parámetros de 
 " Modo simulación: no actualiza TEVEN ni graba log definitivo
 PARAMETERS: p_test AS CHECKBOX DEFAULT 'X'.
 
-" Ventana de proximidad (en horas) respecto a la entrada/salida
-" del horario vigente para clasificar la marca (SDD 4.3)
-PARAMETERS: p_venta TYPE i DEFAULT 2.
-
 SELECTION-SCREEN END OF BLOCK b01.
 
 SELECTION-SCREEN BEGIN OF BLOCK b02 WITH FRAME TITLE TEXT-002. " Identificación en FEHLER
 
 " TODO [SDD 8]: confirmar valores definitivos del mensaje de
-" "marca duplicada" en la tabla FEHLER del cluster B2
-PARAMETERS: p_errty TYPE errty OBLIGATORY,   " Tipo de clase de notificación
-            p_error TYPE error OBLIGATORY.   " Número de la clase de notificación
+" "marca duplicada" en la tabla FEHLER del cluster B2.
+" Se admiten múltiples clases/números de mensaje (SELECT-OPTIONS)
+SELECT-OPTIONS: s_errty FOR g_errty OBLIGATORY,   " Tipo de clase de notificación
+                s_error FOR g_error OBLIGATORY.   " Número de la clase de notificación
 
 SELECTION-SCREEN END OF BLOCK b02.

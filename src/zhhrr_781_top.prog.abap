@@ -63,6 +63,7 @@ TYPES: BEGIN OF gty_resultado,
          ldate   TYPE ldate,
          ltime   TYPE ltime,
          pdsnr   TYPE pdsnr_d,
+         terid   TYPE terid,       " Terminal de origen (0 / PORT)
          accion  TYPE char20,      " CORRECCION / ELIM.LOGICA / NO PROCESADA
          detalle TYPE char80,
        END OF gty_resultado.
@@ -74,14 +75,15 @@ CONSTANTS:
   gc_satza_entrada TYPE retyp      VALUE 'P10',   " Marca de entrada
   gc_satza_salida  TYPE retyp      VALUE 'P20',   " Marca de salida
   gc_idt_portal    TYPE terid      VALUE 'PORT',  " Origen Portal
-  gc_idt_reloj     TYPE terid      VALUE '0',     " Origen reloj control
+  " Nota: se considera "reloj control" toda marca con TERID <> PORT
   gc_cltyp_b2      TYPE pcl2-srtfd VALUE '1',     " Tipo cluster eval.tiempos
   gc_fuente_supl   TYPE char6      VALUE 'IT2003',
   gc_fuente_teor   TYPE char6      VALUE 'IT0007',
   gc_tcode         TYPE sy-tcode   VALUE 'ZHHRT_781', " TODO [SDD 8] confirmar Tx
-  " TODO [SDD 8]: confirmar objeto/subobjeto SLG1 definitivos
-  gc_log_objeto    TYPE balobj_d   VALUE 'ZHR',
-  gc_log_subobjeto TYPE balsubobj  VALUE 'ZDEPURA_MARCAS'.
+  " Objeto de log de aplicación (debe existir en SLG0).
+  " Subobjeto vacío: solo informarlo si se da de alta en SLG0.
+  gc_log_objeto    TYPE balobj_d   VALUE 'ZHR_MARCAS',
+  gc_log_subobjeto TYPE balsubobj  VALUE ''.
 
 *--------------------------------------------------------------------*
 * Variables globales
@@ -89,3 +91,7 @@ CONSTANTS:
 DATA: gt_resultado TYPE STANDARD TABLE OF gty_resultado WITH EMPTY KEY,
       go_log       TYPE REF TO lcl_log,
       go_depurador TYPE REF TO lcl_depurador.
+
+" Campos de referencia para los SELECT-OPTIONS de la pantalla
+DATA: g_errty TYPE errty,   " Tipo de clase de notificación (FEHLER)
+      g_error TYPE error.   " Número de la clase de notificación (FEHLER)

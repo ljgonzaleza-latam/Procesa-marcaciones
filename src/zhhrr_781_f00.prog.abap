@@ -34,9 +34,10 @@ FORM f_leer_fehler_b2 USING pu_pernr TYPE pernr_d
     RETURN.   " Sin resultados de evaluación para el período
   ENDIF.
 
-  " Filtro por el mensaje de marca duplicada (ERRTY/ERROR)
-  LOOP AT fehler WHERE errty = p_errty
-                   AND error = p_error
+  " Filtro por los mensajes de marca duplicada seleccionados
+  " (múltiples clases/números vía SELECT-OPTIONS)
+  LOOP AT fehler WHERE errty IN s_errty
+                   AND error IN s_error
                    AND ldate BETWEEN pu_begda AND pu_endda.
     " Un día se procesa una sola vez aunque tenga varios mensajes
     READ TABLE pc_dias WITH KEY table_line = fehler-ldate

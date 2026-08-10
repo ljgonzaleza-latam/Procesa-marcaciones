@@ -211,7 +211,7 @@ Programa de proceso (batch/bajo demanda) con cuatro bloques:
 | Mensajes de evaluación de tiempos | **Estructura confirmada: tabla `FEHLER` del cluster B2 (`PCL2`)**, importada con las herramientas estándar del cluster. Campos relevantes: `LDATE`/`LTIME` (fecha/hora lógica), `ERRTY` (tipo de clase de notificación, CHAR 1), `ERROR` (número de la clase de notificación, CHAR 2), `MESTY` (tipo de mensaje: E=Error, A=interrupción, ' '=indicación), `PDSNR` (NUMC 12, **referencia directa al evento de TEVEN/IT2011 implicado**), `STATUS` (status de tratamiento del mensaje), `UTEXT` (texto adicional). **[PENDIENTE — confirmar valores de `ERRTY`/`ERROR` que identifican la marca duplicada]** |
 | Horario teórico | Infotipo 0007 (estructura `P0007`) y determinación del horario del día a partir de la regla de plan de horario de trabajo. |
 | Suplencias | Infotipo 2003 (estructura `P2003`). |
-| Log de aplicación | Framework BAL (SLG1): funciones `BAL_LOG_CREATE`, `BAL_LOG_MSG_ADD`, `BAL_DB_SAVE`, con objeto/subobjeto propios del programa. **[PENDIENTE — definir objeto/subobjeto]** |
+| Log de aplicación | Framework BAL (SLG1): funciones `BAL_LOG_CREATE`, `BAL_LOG_MSG_ADD`, `BAL_DB_SAVE`. Objeto: `ZHR_MARCAS` (sin subobjeto), dado de alta en SLG0. |
 
 - **Nota:** no se iniciará la codificación hasta la aprobación explícita de este diseño y la confirmación de las estructuras pendientes.
 
@@ -297,25 +297,23 @@ una a las 8:00 y otra a las 17:10. La segunda marca claramente corresponde a la 
 el programa debe **cambiarla a P20 (salida) en la tabla TEVEN**.
 
 Regla de proximidad:
-- Se usa una **ventana de aproximadamente 2 horas** respecto de la hora de entrada o de salida del
-  horario vigente: la marca se asocia al evento cuya hora planificada esté dentro de ese rango.
+- **[ACTUALIZADO 10.08.2026]** La ventana de proximidad de ~2 horas quedó **desactivada
+  temporalmente**. La marca se clasifica por **cercanía simple**: se asocia al evento (entrada o
+  salida) cuya hora planificada del horario vigente esté más próxima. Ninguna marca queda excluida
+  por distancia.
 
 ```
 Para cada marca del día:
-    si |hora_marca − hora_entrada_horario_vigente| <= 2 horas:
+    si |hora_marca − hora_entrada_horario_vigente| <= |hora_marca − hora_salida_horario_vigente|:
         tipo_esperado = P10 (entrada)
-    si no, si |hora_marca − hora_salida_horario_vigente| <= 2 horas:
-        tipo_esperado = P20 (salida)
     si no:
-        no se procesa la marca; se registra en SLG1 (fuera de rango)
+        tipo_esperado = P20 (salida)
 
     si tipo_registrado ≠ tipo_esperado:
         actualizar tipo de evento en TEVEN (P10 ↔ P20)
         registrar en SLG1 (valor original, valor nuevo, motivo)
 ```
 - Toda reclasificación queda **auditada en SLG1**.
-- Si una marca cae dentro de ambas ventanas (turnos muy cortos) o de ninguna, **no se corrige
-  automáticamente**; solo se registra en SLG1. **[SUPUESTO — validar criterio]**
 
 ### 4.4 Eliminación lógica de duplicados (campo IDTFinal) — casuística única de esta fase
 Cuando en el horario de entrada o en el horario de salida existen **dos marcas del mismo tipo**
@@ -422,10 +420,13 @@ Notas:
 - [x] Estructura de FEHLER (cluster B2) — **recibida y documentada**.
 - [ ] Valores exactos de `ERRTY`/`ERROR` en FEHLER que identifican la "marca duplicada".
 - [ ] Confirmar si tras depurar se debe actualizar el `STATUS` del mensaje en FEHLER (marcarlo como tratado) o si se deja que la siguiente evaluación de tiempos lo limpie.
-- [ ] Objeto y subobjeto del log de aplicación (SLG1) a utilizar por el programa.
+- [x] Objeto del log de aplicación (SLG1): `ZHR_MARCAS`, sin subobjeto (creado en SLG0).
 - [ ] Campo/indicador exacto para la eliminación lógica en TEVEN.
-- [ ] Confirmar si la ventana de proximidad de ~2 horas es fija o parametrizable, y su valor exacto.
-- [ ] Criterio cuando una marca cae en ambas ventanas o en ninguna.
+- [ ] Ventana de proximidad: **desactivada temporalmente** (decisión del 10.08.2026). La clasificación
+  P10/P20 se hace por cercanía simple a la hora de entrada/salida del horario vigente, sin ventana ni
+  exclusión de marcas fuera de rango. Reevaluar si se reincorpora una ventana parametrizable.
+- [x] Las clases/números de mensaje de FEHLER se ingresan como rangos múltiples (`SELECT-OPTIONS`
+  `S_ERRTY` / `S_ERROR`).
 - [ ] Criterio ante suplencias solapadas en la misma fecha.
 - [ ] Parámetros de ejecución del job (periodicidad, selección, modo simulación).
 - [ ] Futuras casuísticas de duplicidad a incorporar en fases posteriores.

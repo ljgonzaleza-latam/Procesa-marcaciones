@@ -131,9 +131,8 @@ CLASS lcl_depurador DEFINITION FINAL.
   PUBLIC SECTION.
     METHODS:
       constructor
-        IMPORTING pi_test    TYPE abap_bool
-                  pi_ventana TYPE i
-                  pi_log     TYPE REF TO lcl_log,
+        IMPORTING pi_test TYPE abap_bool
+                  pi_log  TYPE REF TO lcl_log,
       " Procesa un empleado entregado por la LDB PNP (SDD 4.1)
       procesar_empleado
         IMPORTING pu_pernr TYPE pernr_d
@@ -143,9 +142,8 @@ CLASS lcl_depurador DEFINITION FINAL.
       mostrar_resultado.
 
   PRIVATE SECTION.
-    DATA: l_test    TYPE abap_bool,
-          l_ventana TYPE i,             " Ventana de proximidad en horas
-          lo_log    TYPE REF TO lcl_log.
+    DATA: l_test TYPE abap_bool,
+          lo_log TYPE REF TO lcl_log.
 
     METHODS:
       " Paso 1: lee FEHLER del cluster B2 y devuelve días con
@@ -194,9 +192,8 @@ ENDCLASS.
 CLASS lcl_depurador IMPLEMENTATION.
 
   METHOD constructor.
-    l_test    = pi_test.
-    l_ventana = pi_ventana.
-    lo_log    = pi_log.
+    l_test = pi_test.
+    lo_log = pi_log.
   ENDMETHOD.
 
   METHOD procesar_empleado.
@@ -244,14 +241,10 @@ CLASS lcl_depurador IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD procesar_dia.
-    DATA: lt_marcas   TYPE gty_t_marcas,
-          l_esperado  TYPE retyp,
-          l_dif_ent   TYPE i,
-          l_dif_sal   TYPE i,
-          l_seg_vent  TYPE i.
-
-    " Ventana de proximidad en segundos
-    l_seg_vent = l_ventana * 3600.
+    DATA: lt_marcas  TYPE gty_t_marcas,
+          l_esperado TYPE retyp,
+          l_dif_ent  TYPE i,
+          l_dif_sal  TYPE i.
 
     "----------------------------------------------------------------
     " Lectura de las marcaciones del día en TEVEN (solo lectura)
@@ -282,30 +275,13 @@ CLASS lcl_depurador IMPLEMENTATION.
     "----------------------------------------------------------------
     " Paso 4: discernimiento del tipo de marca (SDD 4.3)
     "----------------------------------------------------------------
+    " Sin ventana de proximidad: la marca se clasifica según la hora
+    " del horario vigente más cercana (entrada o salida)
     LOOP AT lt_marcas REFERENCE INTO DATA(lr_marca).
       l_dif_ent = abs( lr_marca->ltime - lwa_horario-beguz ).
       l_dif_sal = abs( lr_marca->ltime - lwa_horario-enduz ).
 
-      DATA(l_en_entrada) = xsdbool( l_dif_ent <= l_seg_vent ).
-      DATA(l_en_salida)  = xsdbool( l_dif_sal <= l_seg_vent ).
-
-      IF l_en_entrada = abap_true AND l_en_salida = abap_true.
-        " Marca en ambas ventanas: no se corrige automáticamente
-        registrar( pu_marca   = lr_marca->*
-                   pu_accion  = 'NO PROCESADA'(a03)
-                   pu_detalle = 'Marca dentro de ambas ventanas'(d02)
-                   pu_tipo    = 'W' ).
-        CONTINUE.
-      ELSEIF l_en_entrada = abap_false AND l_en_salida = abap_false.
-        " Marca fuera de rango: solo se registra en el log
-        registrar( pu_marca   = lr_marca->*
-                   pu_accion  = 'NO PROCESADA'(a03)
-                   pu_detalle = 'Marca fuera de las ventanas'(d03)
-                   pu_tipo    = 'W' ).
-        CONTINUE.
-      ENDIF.
-
-      l_esperado = COND #( WHEN l_en_entrada = abap_true
+      l_esperado = COND #( WHEN l_dif_ent <= l_dif_sal
                            THEN gc_satza_entrada
                            ELSE gc_satza_salida ).
 
@@ -332,12 +308,19 @@ CLASS lcl_depurador IMPLEMENTATION.
         CONTINUE.   " Sin duplicado para este evento
       ENDIF.
 
-      " Verifica la casuística: una marca de reloj (0) y una de Portal
-      DATA(l_hay_reloj)  = xsdbool( line_exists( lt_evento[ terid = gc_idt_reloj ] ) ).
+      " Verifica la casuística: una marca de reloj y una de Portal.
+      " Se considera "reloj" toda marca cuyo terminal NO sea PORT
+      " (el reloj control puede informar 0 u otro ID de terminal)
+      DATA(l_hay_reloj) = abap_false.
+      LOOP AT lt_evento TRANSPORTING NO FIELDS
+           WHERE terid <> gc_idt_portal.
+        l_hay_reloj = abap_true.
+        EXIT.
+      ENDLOOP.
       DATA(l_hay_portal) = xsdbool( line_exists( lt_evento[ terid = gc_idt_portal ] ) ).
 
       IF l_hay_reloj = abap_true AND l_hay_portal = abap_true.
-        " Regla fija: SIEMPRE prevalece IDTFinal = 0, se elimina PORT
+        " Regla fija: SIEMPRE prevalece la marca que no es PORT
         LOOP AT lt_evento REFERENCE INTO DATA(lr_portal)
              WHERE terid = gc_idt_portal.
           eliminar_marca_portal( lr_portal->* ).
@@ -374,14 +357,15 @@ CLASS lcl_depurador IMPLEMENTATION.
       IF lr_supl->tprog IS NOT INITIAL.
         SELECT sobeg, soend
           FROM t550a
-          INTO ( @pr_horario-beguz, @pr_horario-enduz )
+          INTO TABLE @DATA(lt_t550a)
           UP TO 1 ROWS
           WHERE tprog = @lr_supl->tprog
             AND endda >= @pu_datum
             AND begda <= @pu_datum
           ORDER BY motpr, varia, seqno.
-        ENDSELECT.
         IF sy-subrc = 0.
+          pr_horario-beguz  = lt_t550a[ 1 ]-sobeg.
+          pr_horario-enduz  = lt_t550a[ 1 ]-soend.
           pr_horario-fuente = gc_fuente_supl.
           RETURN.
         ENDIF.
@@ -401,8 +385,6 @@ CLASS lcl_depurador IMPLEMENTATION.
           l_mofid  TYPE hident,
           l_tprog  TYPE tprog,
           l_campo  TYPE fieldname.
-
-    FIELD-SYMBOLS: <lfs_tprog> TYPE any.
 
     " Regla de plan de horario del IT0007 vigente en la fecha
     LOOP AT p0007 REFERENCE INTO DATA(lr_p0007)
@@ -435,28 +417,22 @@ CLASS lcl_depurador IMPLEMENTATION.
       EXIT.
     ENDLOOP.
 
-    " Plan de horario mensual generado (T552A): TPROG del día
-    SELECT * FROM t552a
-      INTO @DATA(lwa_t552a)
-      UP TO 1 ROWS
+    " Plan de horario mensual generado (T552A): TPROG del día.
+    " Lectura dinámica del campo TPRnn correspondiente al día del
+    " mes (evita SELECT * según estándar LATAM)
+    l_campo = |TPR{ pu_datum+6(2) }|.
+    SELECT SINGLE (l_campo)
+      FROM t552a
       WHERE zeity = @l_zeity
         AND mofid = @l_mofid
         AND mosid = @l_mosid
         AND schkz = @l_schkz
         AND kjahr = @pu_datum(4)
-        AND monat = @pu_datum+4(2).
-    ENDSELECT.
-    IF sy-subrc <> 0.
+        AND monat = @pu_datum+4(2)
+      INTO @l_tprog.
+    IF sy-subrc <> 0 OR l_tprog IS INITIAL.
       RETURN.
     ENDIF.
-
-    " Campo TPRnn correspondiente al día del mes
-    l_campo = |TPR{ pu_datum+6(2) }|.
-    ASSIGN COMPONENT l_campo OF STRUCTURE lwa_t552a TO <lfs_tprog>.
-    IF sy-subrc <> 0.
-      RETURN.
-    ENDIF.
-    l_tprog = <lfs_tprog>.
 
     " Horas de entrada/salida del plan de horario diario (T550A)
     " SOBEG/SOEND: inicio/fin del horario de trabajo teórico.
@@ -464,14 +440,15 @@ CLASS lcl_depurador IMPLEMENTATION.
     " del sistema (asignación MOSID -> MOTPR) si existe más de uno.
     SELECT sobeg, soend
       FROM t550a
-      INTO ( @pr_horario-beguz, @pr_horario-enduz )
+      INTO TABLE @DATA(lt_t550a)
       UP TO 1 ROWS
       WHERE tprog = @l_tprog
         AND endda >= @pu_datum
         AND begda <= @pu_datum
       ORDER BY motpr, varia, seqno.
-    ENDSELECT.
     IF sy-subrc = 0.
+      pr_horario-beguz  = lt_t550a[ 1 ]-sobeg.
+      pr_horario-enduz  = lt_t550a[ 1 ]-soend.
       pr_horario-fuente = gc_fuente_teor.
     ENDIF.
   ENDMETHOD.
@@ -485,15 +462,27 @@ CLASS lcl_depurador IMPLEMENTATION.
     IF l_test = abap_false.
       " Actualización vía infotipo 2011 (no update directo a TEVEN,
       " estándar LATAM 11.3). TODO [SDD 8]: confirmar mecanismo.
+      " Se parte del registro real de TEVEN para conservar sus
+      " campos y solo modificar la clase de hecho (SATZA)
+      SELECT SINGLE pernr, ldate, ltime, erdat, ertim, satza,
+                    terid, abwgr, origf, zeinh, hrazl, dallf, pdsnr
+        FROM teven
+        WHERE pdsnr = @pu_marca-pdsnr
+        INTO @DATA(lwa_teven).
+      IF sy-subrc <> 0.
+        registrar( pu_marca   = pu_marca
+                   pu_accion  = 'ERROR'(a04)
+                   pu_detalle = 'Fallo al corregir tipo de marca'(d05)
+                   pu_tipo    = 'E' ).
+        RETURN.
+      ENDIF.
+
+      MOVE-CORRESPONDING lwa_teven TO lwa_p2011.
       lwa_p2011-pernr = pu_marca-pernr.
       lwa_p2011-infty = '2011'.
       lwa_p2011-begda = pu_marca-ldate.
       lwa_p2011-endda = pu_marca-ldate.
-      lwa_p2011-ldate = pu_marca-ldate.
-      lwa_p2011-ltime = pu_marca-ltime.
-      lwa_p2011-pdsnr = pu_marca-pdsnr.
       lwa_p2011-satza = pu_nuevo.
-      lwa_p2011-terid = pu_marca-terid.
 
       CALL FUNCTION 'HR_INFOTYPE_OPERATION'
         EXPORTING
@@ -503,7 +492,7 @@ CLASS lcl_depurador IMPLEMENTATION.
           validitybegin = pu_marca-ldate
           validityend   = pu_marca-ldate
           operation     = 'MOD'
-          tclas         = 'B'          " Datos de tiempos (PCLAS B)
+          tclas         = 'A'          " Datos maestros de empleados
         IMPORTING
           return        = lwa_ret
           key           = lwa_key.
@@ -530,15 +519,26 @@ CLASS lcl_depurador IMPLEMENTATION.
           lwa_ret   TYPE bapireturn1.
 
     IF l_test = abap_false.
+      " Se parte del registro real de TEVEN para conservar sus
+      " campos y solo marcar el indicador de borrado lógico
+      SELECT SINGLE pernr, ldate, ltime, erdat, ertim, satza,
+                    terid, abwgr, origf, zeinh, hrazl, dallf, pdsnr
+        FROM teven
+        WHERE pdsnr = @pu_marca-pdsnr
+        INTO @DATA(lwa_teven).
+      IF sy-subrc <> 0.
+        registrar( pu_marca   = pu_marca
+                   pu_accion  = 'ERROR'(a04)
+                   pu_detalle = 'Fallo en eliminación lógica'(d07)
+                   pu_tipo    = 'E' ).
+        RETURN.
+      ENDIF.
+
+      MOVE-CORRESPONDING lwa_teven TO lwa_p2011.
       lwa_p2011-pernr = pu_marca-pernr.
       lwa_p2011-infty = '2011'.
       lwa_p2011-begda = pu_marca-ldate.
       lwa_p2011-endda = pu_marca-ldate.
-      lwa_p2011-ldate = pu_marca-ldate.
-      lwa_p2011-ltime = pu_marca-ltime.
-      lwa_p2011-pdsnr = pu_marca-pdsnr.
-      lwa_p2011-satza = pu_marca-satza.
-      lwa_p2011-terid = pu_marca-terid.
       lwa_p2011-user2 = 'ELIM_LOGICA'.   " Indicador provisorio de borrado
 
       CALL FUNCTION 'HR_INFOTYPE_OPERATION'
@@ -549,7 +549,7 @@ CLASS lcl_depurador IMPLEMENTATION.
           validitybegin = pu_marca-ldate
           validityend   = pu_marca-ldate
           operation     = 'MOD'
-          tclas         = 'B'
+          tclas         = 'A'          " Datos maestros de empleados
         IMPORTING
           return        = lwa_ret.
       IF lwa_ret-type = 'E' OR lwa_ret-type = 'A'.
@@ -572,6 +572,7 @@ CLASS lcl_depurador IMPLEMENTATION.
                                 ldate   = pu_marca-ldate
                                 ltime   = pu_marca-ltime
                                 pdsnr   = pu_marca-pdsnr
+                                terid   = pu_marca-terid
                                 accion  = pu_accion
                                 detalle = pu_detalle )
            INTO TABLE gt_resultado.
@@ -591,6 +592,11 @@ CLASS lcl_depurador IMPLEMENTATION.
       MESSAGE 'No se encontraron marcas para depurar'(m05) TYPE 'S'.
       RETURN.
     ENDIF.
+
+    " Una misma marca puede registrarse en más de un paso del proceso;
+    " se eliminan las filas totalmente idénticas antes de mostrar
+    SORT gt_resultado BY pernr ldate ltime pdsnr terid accion detalle.
+    DELETE ADJACENT DUPLICATES FROM gt_resultado COMPARING ALL FIELDS.
 
     TRY.
         cl_salv_table=>factory(
