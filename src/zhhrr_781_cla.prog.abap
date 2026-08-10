@@ -254,12 +254,15 @@ CLASS lcl_depurador IMPLEMENTATION.
     "----------------------------------------------------------------
     " Lectura por día dentro del GET PERNR: el volumen es acotado
     " (solo días con error de duplicado según FEHLER)
+    " Se excluyen las marcas ya anuladas (STOKZ) para que el
+    " reproceso del mismo rango sea idempotente
     SELECT pernr, ldate, ltime, pdsnr, satza, terid
       FROM teven
       INTO CORRESPONDING FIELDS OF TABLE @lt_marcas
       WHERE pernr = @pi_pernr
         AND ldate = @pi_datum
         AND ( satza = @gc_satza_entrada OR satza = @gc_satza_salida )
+        AND stokz = @space
       ORDER BY ltime.                            "#EC CI_SEL_NESTED
     IF sy-subrc <> 0.
       RETURN.
@@ -519,7 +522,8 @@ CLASS lcl_depurador IMPLEMENTATION.
 
   METHOD eliminar_marca_portal.
     " Eliminación LÓGICA de la marca de Portal (IDTFinal = PORT):
-    " se marca el campo de cliente USER2 de TEVEN con ELIM_LOGICA.
+    " se anula el evento con el indicador estándar STOKZ (los
+    " procesos SAP lo excluyen) y se marca USER2 como auditoría.
     " La marca original se conserva (nunca borrado físico).
     DATA: l_subrc TYPE sysubrc.
 
@@ -545,7 +549,10 @@ CLASS lcl_depurador IMPLEMENTATION.
         RETURN.
       ENDIF.
 
-      UPDATE teven SET user2 = @gc_marca_elim
+      " STOKZ = 'X': anulación estándar (la evaluación de tiempos y
+      " los procesos SAP ignoran el evento). USER2: rastro de auditoría
+      UPDATE teven SET stokz = @abap_true,
+                       user2 = @gc_marca_elim
              WHERE pdsnr = @pi_marca-pdsnr.
       l_subrc = sy-subrc.
       IF l_subrc = 0.
